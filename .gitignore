@@ -1,0 +1,2 @@
+multiproc/venv*/*
+test_data/*tmp*/*
