@@ -612,13 +612,13 @@ def which(program):
 if __name__ == '__main__':
 
     # Parse arguments
-    args = docopt(__doc__, help=True, version='test2 v0.0.1', options_first=False)
+    args = docopt(__doc__, help=True, version='reg4D v0.0.1', options_first=False)
     # print(args)
 
     # Check for required arguments
     if not args['--in'] and not args['--out'] and not args['--ref']:
         print("")
-        print("Usage:   test2.py --in IMAGE --out PREFIX --ref IMAGE   |   -h,-help,--help")
+        print("Usage:   reg4D.py --in IMAGE --out PREFIX --ref IMAGE   |   -h,-help,--help")
         print("")
         print("Please see help menu for details.")
         print("")
