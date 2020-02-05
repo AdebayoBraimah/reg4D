@@ -642,7 +642,7 @@ if __name__ == '__main__':
             args['--resamp-vox'] = False
             args['--resamp-dim'] = False
 
-    def apply_xfm_4D(nii_file, out_prefix, ref_xfm, ref_target, num_jobs="infer", dim="-tr",
+    def apply_xfm_4D(nii_file, out_prefix, ref_xfm, ref_target="", num_jobs="infer", dim="-tr",
                      tr="infer", warp="", warp_app="relative", premat="", postmat="", resamp_vox=True,
                      resamp_dim=False, mask="", interp="", padding_size="", use_qform=False, data_type="",
                      super_sampling=False, super_level=2, verbose=False):
