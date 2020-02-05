@@ -632,13 +632,15 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Check if MIRTK is installed (if image resampling options are selected)
-    if args['--resamp-vox'] and args['--resamp-dim']:
+    if args['--resamp-vox'] or args['--resamp-dim']:
         mirtk_install = which('mirtk')
         if not mirtk_install:
             print("")
             print("MIRTK is either not installed (properly) or added to the system path.")
             print("")
             print("Disabling any image resampling options")
+            args['--resamp-vox'] = False
+            args['--resamp-dim'] = False
 
     def apply_xfm_4D(nii_file, out_prefix, ref_xfm, ref_target, num_jobs="infer", dim="-tr",
                      tr="infer", warp="", warp_app="relative", premat="", postmat="", resamp_vox=True,
