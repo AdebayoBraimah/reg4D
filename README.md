@@ -41,7 +41,7 @@ Expert Options:
     -m,--mask IMAGE     Binary mask image file in reference space to use for applying transform(s)
     --interp CMD        Interpolation method, options include: "nn","trilinear","sinc","spline"
     --padding-size INT  Extrapolates outside original volume by n voxels
-    --use-qform         Use s/qforms of ref_vol and nii_file images - NOTE: no other transorms can be applied with
+    --use-qform         Use s/qforms of ref_vol and nii_file images - NOTE: no other transforms can be applied with
                         this option
     --data-type CMD     Force output data type (valid options: "char" "short" "int" "float" "double")
     --super-sampling    Intermediary supersampling of output
