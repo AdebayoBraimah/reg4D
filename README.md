@@ -10,7 +10,7 @@ Image resampling options required that `MIRTK` be installed and added to the sys
 
 ```
 Usage:
-  reg4D [options | expert options] [required arguments]
+  reg4D.py [options | expert options] [required arguments]
 
 Required arguments
     -i,--in INPUT       Input 4D file

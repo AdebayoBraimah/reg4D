@@ -1,4 +1,4 @@
-multiproc/venv*/*
-test_data/*tmp*/*
-notebooks/*
-test_data/*
+# multiproc/venv*/*
+# test_data/*tmp*/*
+# notebooks/*
+# test_data/*

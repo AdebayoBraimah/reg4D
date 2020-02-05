@@ -23,7 +23,7 @@ This script at minimum requires that FSL be installed and added to system path.
 Image resampling options required that MIRTK be installed and added to the system path.
 
 Usage:
-  reg4D [options | expert options] [required arguments]
+  reg4D.py [options | expert options] [required arguments]
 
 Required arguments
     -i,--in INPUT       Input 4D file
