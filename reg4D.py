@@ -427,11 +427,12 @@ def img_res(nii_file, out_prefix, ref, resamp_vox=True, resamp_dim=True, verbose
         sys.exit(1)
 
     # Add required input/output arguments
-    if not nii_file in '.nii.gz':
+    if '.nii.gz' not in nii_file:
         # print(True)
         nii_file = nii_file + '.nii.gz'
     rsm.append(nii_file)
-    # out_prefix = out_prefix + ".nii.gz"
+    
+    out_prefix = out_prefix + ".nii.gz"
     rsm.append(out_prefix)
 
     if resamp_vox:
@@ -453,7 +454,6 @@ def img_res(nii_file, out_prefix, ref, resamp_vox=True, resamp_dim=True, verbose
     # Perform/Execute command
     subprocess.call(rsm)
 
-    # out_file = out_prefix + ".nii.gz"
     out_file = out_prefix
 
     return out_file
@@ -521,10 +521,10 @@ def cp_img(file, dest_name):
         out_file (string): Absolute path to output file.
     '''
 
-    if not file in '.nii.gz':
+    if '.nii.gz' not in file:
         file = file + '.nii.gz'
 
-    if not dest_name in '.nii.gz':
+    if '.nii.gz' not in dest_name:
         out_file = dest_name + '.nii.gz'
 
     shutil.copy(file, out_file)
