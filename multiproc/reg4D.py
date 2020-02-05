@@ -41,7 +41,7 @@ Options:
 
 Expert Options:
     -d,--dim CMD        (Command) Dimension to split and concatenate along the 4D image
-                        (valid options: "-x", "-y", "-z", "t", "-tr") [default: -tr]
+                        (valid options: -x, -y, -z, t, -tr) [default: -tr]
     -w,--warp IMAGE     FSL-style non-linear warp field file to reference image
     --warp-app CMD      (Command) Warp field treatment and application
                         (valid options: "relative", "absolute") [default: "relative"]

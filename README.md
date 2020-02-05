@@ -8,7 +8,7 @@ space dimensions (in the case a native space image is provided).
 This script at minimum requires that `FSL` be installed and added to system path.
 Image resampling options required that `MIRTK` be installed and added to the system path.
 
-```shell
+```
 Usage:
   reg4D [options | expert options] [required arguments]
 
@@ -28,7 +28,7 @@ Options:
 
 Expert Options:
     -d,--dim CMD        (Command) Dimension to split and concatenate along the 4D image
-                        (valid options: "-x", "-y", "-z", "t", "-tr") [default: -tr]
+                        (valid options: -x, -y, -z, t, -tr) [default: -tr]
     -w,--warp IMAGE     FSL-style non-linear warp field file to reference image
     --warp-app CMD      (Command) Warp field treatment and application
                         (valid options: "relative", "absolute") [default: "relative"]
