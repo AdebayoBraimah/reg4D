@@ -1,5 +1,74 @@
 #!/usr/bin/env python3
+# 
+# -*- coding: utf-8 -*-
+# title           : reg4D.py
+# description     : [description]
+# author          : Adebayo B. Braimah
+# e-mail          : adebayo.braimah@cchmc.org
+# date            : 2020 02 04 20:55:12
+# version         : 0.0.1
+# usage           : reg4D.py [-h,--help]
+# notes           : [notes]
+# python_version  : 3.7.4
+#==============================================================================
 
+# Define usage
+"""
+
+Applies pre-computed (affine) linear and non-linear transforms to 4D EP (bold) image data in parallel.
+Additional options include the ability to resample the image back to its native voxel size and/or native
+space dimensions (in the case a native space image is provided).
+
+This script at minimum requires that FSL be installed and added to system path.
+Image resampling options required that MIRTK be installed and added to the system path.
+
+Usage:
+  reg4D [options | expert options] [required arguments]
+
+Required arguments
+    -i,--in INPUT       Input 4D file
+    -o,--out PREFIX     Output prefix for transformed 4D file
+    -r,--ref IMAGE      Reference image that corresponds to the transform(s)
+
+Options:
+    --ref-tar IMAGE Reference (target) image to resample to post-transform
+                        (usually the native space image) - behaves best with
+                        linear transfroms.
+    -TR,--TR FLOAT      Repetition time (TR) of the input 4D EPI. If this value is not
+                        specified, it will then be read from the nifti header [default: infer]
+    -n,--num-jobs INT   Number of jobs to run in parallel. Default behavior is to use the
+                        max number of cores available [default: infer]
+
+Expert Options:
+    -d,--dim CMD        (Command) Dimension to split and concatenate along the 4D image
+                        (valid options: "-x", "-y", "-z", "t", "-tr") [default: -tr]
+    -w,--warp IMAGE     FSL-style non-linear warp field file to reference image
+    --warp-app CMD      (Command) Warp field treatment and application
+                        (valid options: "relative", "absolute") [default: "relative"]
+    --premat MAT        FSL-style pre-transform linear transformation matrix
+    --postmat MAT       FSL-style post-transform linear transformation matrix
+    --resamp-vox        Resample voxel-size to reference target image (can only be
+                        enabled when the '--ref-tar' option is used)
+    --resamp-dim        Resample image dimension to reference target image (can only be
+                        enabled when the '--ref-tar' option is used)
+    -m,--mask IMAGE     Binary mask image file in reference space to use for applying transform(s)
+    --interp CMD        Interpolation method, options include: "nn","trilinear","sinc","spline"
+    --padding-size INT  Extrapolates outside original volume by n voxels
+    --use-qform         Use s/qforms of ref_vol and nii_file images - NOTE: no other transorms can be applied with
+                        this option
+    --data-type CMD     Force output data type (valid options: "char" "short" "int" "float" "double")
+    --super-sampling    Intermediary supersampling of output
+    --super-level CMD   Level of intermediary supersampling, a for 'automatic' or integer level.
+                        Only used when '--super-sampling' option is enabled. [default: 2]
+
+    -v,--verbose        Enable verbose output [default: False]
+    -h,--help           Prints help message, then exits.
+    --version           Prints version, then exits.
+
+NOTE: '--resamp-dim' and '--resamp-vox' options require MIRTK to be installed. If these options are specified
+"""
+
+# Import modules and packages
 import nibabel as nib
 import os
 import sys
@@ -8,6 +77,9 @@ import glob
 import random
 import shutil
 import multiprocessing
+
+# Import packages and modules for argument parsing
+from docopt import docopt
 
 # Define classes
 
@@ -510,9 +582,63 @@ def construct_args(list_opts, var_opts, dictionary=dict()):
 
     return new_dict
 
-# Test functions here
+def which(program):
+    '''
+    Mimics UNIX which command.
 
-if __name__ == "__main__":
+    Arguments:
+        program (string): Input program/executable name as a string
+
+    Returns:
+        program, exe_file, or None: Searches system path and returns the requested executable/file. If it does not exist, None is returned.
+    '''
+
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
+if __name__ == '__main__':
+
+    # Parse arguments
+    args = docopt(__doc__, help=True, version='test2 v0.0.1', options_first=False)
+    # print(args)
+
+    # Check for required arguments
+    if not args['--in'] and not args['--out'] and not args['--ref']:
+        print("")
+        print("Usage:   test2.py --in IMAGE --out PREFIX --ref IMAGE   |   -h,-help,--help")
+        print("")
+        print("Please see help menu for details.")
+        print("")
+
+    # Check if FSL is installed
+    fsl_install = which('applywarp')
+
+    if not fsl_install:
+        print("")
+        print("FSL's applywarp is either not installed (properly) or added to the system path. Exiting.")
+        sys.exit(1)
+
+    # Check if MIRTK is installed (if image resampling options are selected)
+    if args['--resamp-vox'] and args['--resamp-dim']:
+        mirtk_install = which('mirtk')
+        if not mirtk_install:
+            print("")
+            print("MIRTK is either not installed (properly) or added to the system path.")
+            print("")
+            print("Disabling any image resampling options")
 
     def apply_xfm_4D(nii_file, out_prefix, ref_xfm, ref_target, num_jobs="infer", dim="-tr",
                      tr="infer", warp="", warp_app="relative", premat="", postmat="", resamp_vox=True,
@@ -564,6 +690,9 @@ if __name__ == "__main__":
         # Get number of jobs for parallelization
         if num_jobs == 'infer':
             num_jobs = multiprocessing.cpu_count()
+            if verbose:
+                print("")
+                print(f"Using {num_jobs} cores")
 
         # Get TR
         if tr == 'infer':
@@ -658,6 +787,9 @@ if __name__ == "__main__":
         out_file = merge_4D(nii_list=xfm_list, out_prefix=out_prefix, dim=dim, tr=tr, verbose=False)
 
         # remove temporary directory and leftover files
+        if verbose:
+            print("")
+            print("Cleaning up")
         shutil.rmtree(out_tmp)
 
         if verbose:
@@ -666,16 +798,23 @@ if __name__ == "__main__":
 
         return out_file
 
-    # Test variables
-    nii_file="/Users/brac4g/Desktop/reg4D/test_data/filtered_func_data.nii.gz"
-    out="/Users/brac4g/Desktop/reg4D/test_data/img_test"
-    ref_xfm="/Users/brac4g/Desktop/reg4D/test_data/highres.nii.gz"
-    ref_target="/Users/brac4g/Desktop/reg4D/test_data/example_func.nii.gz"
-    premat="/Users/brac4g/Desktop/reg4D/test_data/example_func2highres.mat"
-    num_jobs=20
-    resamp_vox = True
-    resamp_dim = False
-    apply_xfm_4D(nii_file=nii_file, out_prefix=out, ref_xfm=ref_xfm, ref_target=ref_target, num_jobs=num_jobs, dim="-tr",
-                 tr="infer", warp="", warp_app="relative", premat=premat, postmat="", resamp_vox=resamp_vox,
-                 resamp_dim=resamp_dim, mask="", interp="", padding_size="", use_qform=False, data_type="",
-                 super_sampling=False, super_level=2, verbose=True)
+    # Apply transforms to 4D EP image
+    if args['--in'] and args['--out'] and args['--ref']:
+        # convert strings to int and/or float
+        try:
+            args['--TR'] = float(args['--TR'])
+        except ValueError:
+            pass
+        try:
+            args['--num-jobs'] = int(args['--num-jobs'])
+        except ValueError:
+            pass
+        try:
+            args['--super-level'] = int(args['--super-level'])
+        except ValueError:
+            pass
+        # Run apply xfm 4D
+        apply_xfm_4D(nii_file=args['--in'], out_prefix=args['--out'], ref_xfm=args['--ref'], ref_target=args['--ref-tar'], num_jobs=args['--num-jobs'], dim=args['--dim'],
+                     tr=args['--TR'], warp=args['--warp'], warp_app=args['--warp-app'], premat=args['--premat'], postmat=args['--postmat'], resamp_vox=args['--resamp-vox'],
+                     resamp_dim=args['--resamp-dim'], mask=args['--mask'], interp=args['--interp'], padding_size=args['--padding-size'], use_qform=args['--use-qform'], data_type=args['--data-type'],
+                     super_sampling=args['--super-sampling'], super_level=args['--super-level'], verbose=args['--verbose'])
