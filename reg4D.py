@@ -54,8 +54,8 @@ Expert Options:
     -m,--mask IMAGE     Binary mask image file in reference space to use for applying transform(s)
     --interp CMD        Interpolation method, options include: "nn","trilinear","sinc","spline"
     --padding-size INT  Extrapolates outside original volume by n voxels
-    --use-qform         Use s/qforms of ref_vol and nii_file images - NOTE: no other transorms can be applied with
-                        this option
+    --use-qform         Use s/qforms of ref_vol and nii_file images 
+                        - NOTE: no other transorms can be applied with this option
     --data-type CMD     Force output data type (valid options: "char" "short" "int" "float" "double")
     --super-sampling    Intermediary supersampling of output
     --super-level CMD   Level of intermediary supersampling, a for 'automatic' or integer level.
@@ -65,7 +65,7 @@ Expert Options:
     -h,--help           Prints help message, then exits.
     --version           Prints version, then exits.
 
-NOTE: '--resamp-dim' and '--resamp-vox' options require MIRTK to be installed. If these options are specified
+NOTE: '--resamp-dim' and '--resamp-vox' options require MIRTK to be installed if these options are specified.
 """
 
 # Import modules and packages
@@ -721,6 +721,7 @@ if __name__ == '__main__':
             cmd_dict_2 = {"ref": ref_target}  # Argument(s) not in command list
             cmd_dict_2 = construct_args(list_opts=list_opts_2, var_opts=var_opts_2, dictionary=cmd_dict_2)
         else:
+            cmd_dict_2 = dict()
             resamp_vox = False
             resamp_dim = False
 
