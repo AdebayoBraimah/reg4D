@@ -31,7 +31,7 @@ Required arguments
     -r,--ref IMAGE      Reference image that corresponds to the transform(s)
 
 Options:
-    --ref-tar IMAGE Reference (target) image to resample to post-transform
+    --ref-tar IMAGE     Reference (target) image to resample to post-transform
                         (usually the native space image) - behaves best with
                         linear transfroms.
     -TR,--TR FLOAT      Repetition time (TR) of the input 4D EPI. If this value is not
