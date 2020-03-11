@@ -428,7 +428,7 @@ def img_res(nii_file, out_prefix, ref, resamp_vox=True, resamp_dim=True, verbose
     [n_dim, x_dim, y_dim, z_dim, n_vol, x_vox, y_vox, z_vox, tr] = get_img_dims(nii_file=nii_file)
 
     if n_dim > 3:
-        print(f"Image {ref} is greater than 3 dimensions. Exiting")
+        print(f"Image {nii_file} is greater than 3 dimensions. Exiting")
         sys.exit(1)
 
     # Get image dimensions (reference)

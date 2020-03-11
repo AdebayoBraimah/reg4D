@@ -4,3 +4,4 @@
 # test_data/*
 *.ipynb
 reg.test/*
+preproc.reg4D.wrapper.sh
