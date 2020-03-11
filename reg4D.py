@@ -888,7 +888,7 @@ if __name__ == '__main__':
             if verbose:
                 print("")
                 print("Merging transformed data into 4D file")
-            xfm_list = sorted(glob.glob(out_name_3 + "*.nii*"))
+            xfm_list = sorted(glob.glob(out_name_2 + "*.nii*"))
             out_file = merge_4D(nii_list=xfm_list, out_prefix=out_prefix, dim=dim, tr=tr, verbose=verbose)
         else:
             if verbose:
