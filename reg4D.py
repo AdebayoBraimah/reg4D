@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # 
 # -*- coding: utf-8 -*-
-# title           : reg4D.py
+# title           : kd.py
 # description     : [description]
 # author          : Adebayo B. Braimah
 # e-mail          : adebayo.braimah@cchmc.org
-# date            : 2020 02 04 20:55:12
+# date            : 2020 03 11 19:07:33
 # version         : 0.0.1
-# usage           : reg4D.py [-h,--help]
+# usage           : kd.py [-h,--help]
 # notes           : [notes]
-# python_version  : 3.7.4
+# python_version  : 3.7.3
 #==============================================================================
 
 # Define usage
