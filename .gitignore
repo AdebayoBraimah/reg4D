@@ -3,3 +3,4 @@
 # notebooks/*
 # test_data/*
 *.ipynb
+reg.test/*

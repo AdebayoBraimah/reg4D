@@ -28,7 +28,8 @@ Usage:
 Required arguments
     -i,--in INPUT       Input 4D file
     -o,--out PREFIX     Output prefix for transformed 4D file
-    -r,--ref IMAGE      Reference image that corresponds to the transform(s)
+    -r,--ref IMAGE      Reference image that corresponds to the transform(s) or
+                        target space to be resampled/interpolated to
 
 Options:
     --ref-tar IMAGE     Reference (target) image to resample to post-transform
@@ -47,19 +48,23 @@ Expert Options:
                         (valid options: "relative", "absolute") [default: "relative"]
     --premat MAT        FSL-style pre-transform linear transformation matrix
     --postmat MAT       FSL-style post-transform linear transformation matrix
-    --resamp-vox        Resample voxel-size to reference target image (can only be
-                        enabled when the '--ref-tar' option is used)
-    --resamp-dim        Resample image dimension to reference target image (can only be
-                        enabled when the '--ref-tar' option is used)
+    --resamp-vox        Resample voxel-size to reference target image (if '--ref-tar' option is not
+                        used then image voxel-size is resampled back to native voxel-size)
+    --resamp-dim        Resample image dimension to reference target image (if '--ref-tar' option is not
+                        used then image dimensions are resampled back to native dimensions)
     -m,--mask IMAGE     Binary mask image file in reference space to use for applying transform(s)
     --interp CMD        Interpolation method, options include: "nn","trilinear","sinc","spline"
     --padding-size INT  Extrapolates outside original volume by n voxels
     --use-qform         Use s/qforms of ref_vol and nii_file images 
                         - NOTE: no other transorms can be applied with this option
     --data-type CMD     Force output data type (valid options: "char" "short" "int" "float" "double")
-    --super-sampling    Intermediary supersampling of output
+    --super-sampling    Intermediary supersampling of output. [default: False]
     --super-level CMD   Level of intermediary supersampling, a for 'automatic' or integer level.
                         Only used when '--super-sampling' option is enabled. [default: 2]
+    --no-parallel       Do not apply linear/non-linear transforms in parallel.
+                        NOT RECOMMENDED for 4D neuroimage EPIs greater than 300 frames (TRs) or
+                        for use with non-linear transforms as FSL's applywarp has to read the entire
+                        timeseries into memory.
 
     -v,--verbose        Enable verbose output [default: False]
     -h,--help           Prints help message, then exits.
@@ -419,11 +424,18 @@ def img_res(nii_file, out_prefix, ref, resamp_vox=True, resamp_dim=True, verbose
     rsm = Command().init_cmd("mirtk")
     rsm.append("resample-image")  # append mirtk sub-command
 
-    # Get image dimensions
+    # Get image dimensions (input)
+    [n_dim, x_dim, y_dim, z_dim, n_vol, x_vox, y_vox, z_vox, tr] = get_img_dims(nii_file=nii_file)
+
+    if n_dim > 3:
+        print(f"Image {ref} is greater than 3 dimensions. Exiting")
+        sys.exit(1)
+
+    # Get image dimensions (reference)
     [n_dim, x_dim, y_dim, z_dim, n_vol, x_vox, y_vox, z_vox, tr] = get_img_dims(nii_file=ref)
 
     if n_dim > 3:
-        print(f"Image {nii_file} is greater than 3 dimensions. Exiting")
+        print(f"Image {ref} is greater than 3 dimensions. Exiting")
         sys.exit(1)
 
     # Add required input/output arguments
@@ -431,7 +443,7 @@ def img_res(nii_file, out_prefix, ref, resamp_vox=True, resamp_dim=True, verbose
         # print(True)
         nii_file = nii_file + '.nii.gz'
     rsm.append(nii_file)
-    
+
     out_prefix = out_prefix + ".nii.gz"
     rsm.append(out_prefix)
 
@@ -557,7 +569,7 @@ def cp_dir_imgs(in_list, out_list, max_val):
 def construct_args(list_opts, var_opts, dictionary=dict()):
     '''
     Constructs argument dictionary from an input options list and a corresponding variables list. Both lists must be
-    of the same length. An input dictionary can be specied, in which case - a new dictionary is returned.
+    of the same length. An input dictionary can be specified, in which case - a new dictionary is returned.
 
     Arguments:
         list_opts (list): Input options list
@@ -584,7 +596,7 @@ def construct_args(list_opts, var_opts, dictionary=dict()):
 
 def which(program):
     '''
-    Mimics UNIX which command.
+    Mimics UNIX 'which' command.
 
     Arguments:
         program (string): Input program/executable name as a string
@@ -607,6 +619,80 @@ def which(program):
                 return exe_file
 
     return None
+
+
+def make_ref_tar_img(nii_file, out_prefix, verbose=False):
+    '''
+    Wrapper function for fslmaths. Creates a mean image of an input 4D EPI timeseries to
+    create a 'reference target image' - should one not be provided.
+
+    Arugments:
+        nii_file (file,string): Input 4D EPI timeseries.
+        out_prefix (file,string): Output file prefix (no '.nii.gz')
+        verbose (bool, optional): Enable verbose output [default: False]
+
+    Returns:
+        out_file (file,string): Mean image of input nifti file.
+    '''
+
+    # Create empty file and path to retrieve
+    out_prefix = File.make_filename_path(out_prefix)
+
+    # Initialize command
+    mean_img = Command().init_cmd("fslmaths")
+
+    # Add input/output arguments
+    mean_img.append(nii_file)
+    mean_img.append("-Tmean")
+    mean_img.append(out_prefix)
+
+    if verbose:
+        print(' '.join(mean_img))
+
+    # Perform/Execute command
+    subprocess.call(mean_img)
+
+    out_file = out_prefix + ".nii.gz"
+
+    return out_file
+
+
+def make_img_mask(nii_file, out_prefix, verbose=False):
+    '''
+    Wrapper function for fslmaths. Creates a binary mask for a nifti image file.
+
+    Arugments:
+        nii_file (file,string): Input 4D EPI timeseries.
+        out_prefix (file,string): Output file prefix (no '.nii.gz')
+        verbose (bool, optional): Enable verbose output [default: False]
+
+    Returns:
+        out_file (file,string): Binary mask image of input nifti file.
+    '''
+
+    # Get image dimensions
+    [n_dim, x_dim, y_dim, z_dim, n_vol, x_vox, y_vox, z_vox, tr] = get_img_dims(nii_file=nii_file)
+
+    # Create empty file and path to retrieve
+    out_prefix = File.make_filename_path(out_prefix)
+
+    # Initialize command
+    mask_img = Command().init_cmd("fslmaths")
+
+    # Add input/output arguments
+    mask_img.append(nii_file)
+    mask_img.append("-bin")
+    mask_img.append(out_prefix)
+
+    if verbose:
+        print(' '.join(mask_img))
+
+    # Perform/Execute command
+    subprocess.call(mask_img)
+
+    out_file = out_prefix + ".nii.gz"
+
+    return out_file
 
 
 if __name__ == '__main__':
@@ -680,6 +766,27 @@ if __name__ == '__main__':
         # max number for random number generator
         n = 10000  # maximum N
 
+        # Make temporay directories
+        out_tmp = os.path.join(os.path.dirname(out_prefix), 'tmp_dir' + str(random.randint(0, n)))
+
+        out_tmp_1 = os.path.join(os.path.abspath(out_tmp), 'tmp_dir' + str(random.randint(0, n)))
+        out_tmp_2 = os.path.join(os.path.abspath(out_tmp), 'tmp_dir' + str(random.randint(0, n)))
+
+        if not os.path.exists(out_tmp_1):
+            os.makedirs(out_tmp_1)
+
+        if not os.path.exists(out_tmp_2):
+            os.makedirs(out_tmp_2)
+
+        # Get absolute paths
+        out_tmp = os.path.abspath(out_tmp)
+        out_tmp_1 = os.path.abspath(out_tmp_1)
+        out_tmp_2 = os.path.abspath(out_tmp_2)
+
+        out_name = os.path.join(out_tmp, 'func_img')
+        out_name_1 = os.path.join(out_tmp_1, 'func_split')
+        out_name_2 = os.path.join(out_tmp_2, 'func_xfm')
+
         # Get image info
         [n_dim, x_dim, y_dim, z_dim, n_vol, x_vox, y_vox, z_vox, tr_img] = get_img_dims(nii_file=nii_file)
 
@@ -699,95 +806,95 @@ if __name__ == '__main__':
         # Get TR
         if tr == 'infer':
             tr = tr_img
+        if verbose:
+            print("")
+            print(f"TR is: {tr} sec.")
+
+        # Create initial images
+        if not ref_target:
+            ref_target = make_ref_tar_img(nii_file=nii_file, out_prefix=out_name + "_mean", verbose=verbose)
+
+        ref_mask = make_img_mask(nii_file=ref_xfm, out_prefix=out_name + "_ref_mask", verbose=verbose)
+
+        if resamp_vox or resamp_dim:
+            ref_tar_rsm = File.make_filename_path(out_prefix=out_name + "_ref_tar_rsm")
+            ref_tar_rsm_mask = File.make_filename_path(out_prefix=out_name + "_ref_tar_rsm_mask")
+        else:
+            ref_tar_rsm = ref_xfm
+            ref_tar_rsm_mask = ref_mask
 
         # Make keyword argument dictionaries
         # Command 1 dictionary
         # Options list and variables
         list_opts_1 = ["warp", "warp_app", "premat", "postmat", "mask", "interp", "padding_size", "use_qform",
-                     "data_type", "super_sampling", "super_level", "verbose"]
-        var_opts_1 = [warp, warp_app, premat, postmat, mask, interp, padding_size, use_qform, data_type, super_sampling,
-                    super_level, verbose]
+                       "data_type", "super_sampling", "super_level", "verbose"]
+        var_opts_1 = [warp, warp_app, premat, postmat, ref_mask, interp, padding_size, use_qform, data_type,
+                      super_sampling,
+                      super_level, verbose]
 
         cmd_dict_1 = {"ref_vol": ref_xfm}  # Required argument(s) not in command list
-
-        cmd_dict_1 = construct_args(list_opts=list_opts_1,var_opts=var_opts_1,dictionary=cmd_dict_1)
+        cmd_dict_1 = construct_args(list_opts=list_opts_1, var_opts=var_opts_1, dictionary=cmd_dict_1)
 
         # Command 2 dictionary
         # Options list and variables
         list_opts_2 = ["resamp_vox", "resamp_dim", "verbose"]
-        var_opts_2 = [resamp_vox,resamp_dim,verbose]
+        var_opts_2 = [resamp_vox, resamp_dim, verbose]
 
-        if ref_target:
+        if resamp_vox or resamp_dim:
             cmd_dict_2 = {"ref": ref_target}  # Argument(s) not in command list
             cmd_dict_2 = construct_args(list_opts=list_opts_2, var_opts=var_opts_2, dictionary=cmd_dict_2)
         else:
             cmd_dict_2 = dict()
-            resamp_vox = False
-            resamp_dim = False
 
-        if not resamp_vox and not resamp_dim:
-            cp_dir = True
+        # Command 3 dictionary
+        # Options list and variables
+        list_opts_3 = ["warp", "warp_app", "premat", "postmat", "mask", "interp", "padding_size", "use_qform",
+                       "data_type", "super_sampling", "super_level", "verbose"]
+        var_opts_3 = [warp, warp_app, premat, postmat, ref_tar_rsm_mask, interp, padding_size, use_qform, data_type,
+                      super_sampling,
+                      super_level, verbose]
+
+        cmd_dict_3 = {"ref_vol": ref_tar_rsm}  # Required argument(s) not in command list
+        cmd_dict_3 = construct_args(list_opts=list_opts_3, var_opts=var_opts_3, dictionary=cmd_dict_3)
+
+        # Perform initial transform
+        img_xfm = apply_xfm_3D(nii_file=ref_target, out_prefix=out_name + "_xfm", **cmd_dict_1)
+
+        # Perform image resampling
+        if resamp_vox or resamp_dim:
+            img_rsm = img_res(nii_file=img_xfm, out_prefix=out_name + "_xfm_rsm", **cmd_dict_2)
         else:
-            cp_dir = False
+            img_rsm = img_xfm
 
-        # Make temporay directories
-        out_tmp = os.path.join(os.path.dirname(out_prefix), 'tmp_dir' + str(random.randint(0, n)))
-        # out_tmp = os.path.join(os.path.dirname(nii_file), 'tmp_dir' + str(random.randint(0, n)))
+        if num_jobs != 1:
+            # Split 4D EP image timeseries
+            if verbose:
+                print("")
+                print("Splitting 4D timeseries")
+            pre_xfm_list = split_4D(nii_4d=nii_file, out_prefix=out_name_1, dim=split_dim, verbose=verbose)
 
-        out_tmp_1 = os.path.join(os.path.abspath(out_tmp), 'tmp_dir' + str(random.randint(0, n)))
-        out_tmp_2 = os.path.join(os.path.abspath(out_tmp), 'tmp_dir' + str(random.randint(0, n)))
-        out_tmp_3 = os.path.join(os.path.abspath(out_tmp), 'tmp_dir' + str(random.randint(0, n)))
+            # Parallelize process(es)
+            out_tmp_names_list_2 = make_out_list(out_name=out_name_2, max_val=n_vol)
+            cmd_tup_2 = multiproc_cmd_list_tuple(in_list=pre_xfm_list, out_list=out_tmp_names_list_2, **cmd_dict_3)
 
-        if not os.path.exists(out_tmp_1):
-            os.makedirs(out_tmp_1)
-
-        if not os.path.exists(out_tmp_2):
-            os.makedirs(out_tmp_2)
-
-        if not os.path.exists(out_tmp_3):
-            os.makedirs(out_tmp_3)
-
-        out_tmp_1 = os.path.abspath(out_tmp_1)
-        out_tmp_2 = os.path.abspath(out_tmp_2)
-        out_tmp_3 = os.path.abspath(out_tmp_3)
-
-        out_name_1 = os.path.join(out_tmp_1, 'func_split')
-        out_name_2 = os.path.join(out_tmp_2, 'func_xfm')
-        out_name_3 = os.path.join(out_tmp_3, 'func_rsm')
-
-        if verbose:
-            print("")
-            print("Splitting 4D timeseries")
-
-        pre_xfm_list = split_4D(nii_4d=nii_file, out_prefix=out_name_1, dim=split_dim, verbose=verbose)
-
-        # Parallelize processes
-        out_tmp_names_list_2 = make_out_list(out_name=out_name_2, max_val=n_vol)
-        out_tmp_names_list_3 = make_out_list(out_name=out_name_3, max_val=n_vol)
-
-        cmd_tup_2 = multiproc_cmd_list_tuple(in_list=pre_xfm_list, out_list=out_tmp_names_list_2, **cmd_dict_1)
-        cmd_tup_3 = multiproc_cmd_list_tuple(in_list=out_tmp_names_list_2, out_list=out_tmp_names_list_3, **cmd_dict_2)
-
-        if verbose:
-            print("")
-            print("Applying transform(s) to data")
-
-        with multiprocessing.Pool(processes=num_jobs) as pool:
-            proc_1 = pool.starmap(apply_xfm_3D, cmd_tup_2)
-
-        if not cp_dir:
+            # Apply transfrom(s) to 4D EP image (in parallel)
+            if verbose:
+                print("")
+                print("Applying transform(s) to data in parallel")
             with multiprocessing.Pool(processes=num_jobs) as pool:
-                proc_2 = pool.starmap(img_res, cmd_tup_3)
+                proc = pool.starmap(apply_xfm_3D, cmd_tup_2)
+
+            # Create list from output xfm-ed files, and sort, then merge
+            if verbose:
+                print("")
+                print("Merging transformed data into 4D file")
+            xfm_list = sorted(glob.glob(out_name_3 + "*.nii*"))
+            out_file = merge_4D(nii_list=xfm_list, out_prefix=out_prefix, dim=dim, tr=tr, verbose=verbose)
         else:
-            cp_dir_imgs(in_list=out_tmp_names_list_2,out_list=out_tmp_names_list_3,max_val=n_vol)
-
-        if verbose:
-            print("")
-            print("Merging transformed data into 4D file")
-
-        xfm_list = sorted(glob.glob(out_name_3 + "*.nii*"))
-
-        out_file = merge_4D(nii_list=xfm_list, out_prefix=out_prefix, dim=dim, tr=tr, verbose=False)
+            if verbose:
+                print("")
+                print("Applyting transform(s) to data - not in parallel - this may take some time...")
+            apply_xfm_3D(nii_file=nii_file, out_prefix=out_prefix, **cmd_dict_3)
 
         # remove temporary directory and leftover files
         if verbose:
@@ -816,6 +923,8 @@ if __name__ == '__main__':
             args['--super-level'] = int(args['--super-level'])
         except ValueError:
             pass
+        if args['--no-parallel']:
+            args['--num-jobs'] = 1
         # Run apply xfm 4D
         apply_xfm_4D(nii_file=args['--in'], out_prefix=args['--out'], ref_xfm=args['--ref'], ref_target=args['--ref-tar'], num_jobs=args['--num-jobs'], dim=args['--dim'],
                      tr=args['--TR'], warp=args['--warp'], warp_app=args['--warp-app'], premat=args['--premat'], postmat=args['--postmat'], resamp_vox=args['--resamp-vox'],
